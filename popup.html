@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>浮光画布</title>
+<style>
+  body { width: 240px; margin: 0; padding: 14px; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #12141a; color: #eef0f8; }
+  h1 { font-size: 15px; margin: 0 0 2px; }
+  p { font-size: 12px; color: #a6adbd; margin: 0 0 12px; }
+  .row { display: flex; justify-content: space-between; font-size: 12px; background: #1c1f27; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+  .row b { color: #ffc371; font-weight: 500; }
+  button { width: 100%; height: 40px; border: 0; border-radius: 8px; background: #d6421f; color: #fff; font-size: 14px; cursor: pointer; }
+  button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+<h1>浮光画布（LumaCanvas）</h1>
+<p>网页点击/滑动特效与动态背景</p>
+<div class="row"><span>点击特效</span><b id="fx">…</b></div>
+<button id="open">打开完整设置</button>
+<script src="popup.js"></script>
+</body>
+</html>

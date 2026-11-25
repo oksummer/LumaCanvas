@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#101426">
+<title>浮光画布 LumaCanvas</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="bgCanvas"></canvas>
+  <canvas id="fxCanvas"></canvas>
+  <div id="hint">
+    <span class="hint-title">✨ 点按任意位置</span>
+    <span class="hint-sub">点下方按钮自定义特效</span>
+  </div>
+</div>
+
+<button id="fab" aria-label="打开特效设置">✨</button>
+
+<div id="panel" class="hidden" role="dialog" aria-label="特效设置" aria-modal="false">
+  <div class="panel-head">
+    <span class="panel-title">特效设置</span>
+    <button id="collapseBtn" aria-label="收起设置">▾</button>
+  </div>
+
+  <section>
+    <h2>点击特效</h2>
+    <div id="fxList" class="chips"></div>
+    <div id="fxParams" class="params"></div>
+  </section>
+
+  <section id="textSec" class="hidden">
+    <h2>文字内容</h2>
+    <input id="textInput" type="text" maxlength="10" placeholder="点击时飘出的文字" autocomplete="off">
+  </section>
+
+  <section>
+    <h2>背景颜色</h2>
+    <div id="colorList" class="swatches"></div>
+  </section>
+
+  <section>
+    <h2>背景特效</h2>
+    <div id="bgList" class="chips"></div>
+    <div id="bgParams" class="params"></div>
+  </section>
+
+  <section>
+    <h2>滑动特效</h2>
+    <div id="swipeList" class="chips"></div>
+    <div id="swipeParams" class="params"></div>
+  </section>
+</div>
+
+<script src="./fx.js"></script>
+<script src="./bg.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
