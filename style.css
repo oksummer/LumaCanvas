@@ -128,6 +128,9 @@ section.hidden { display: none; }
   color: #fff;
   font-weight: 600;
 }
+/* 选中 chip 的展开提示：二次点选进入参数设置 */
+.chip .cv { display: none; margin-left: 4px; font-size: 10px; opacity: .85; }
+.chip.active .cv { display: inline; }
 
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .swatch {

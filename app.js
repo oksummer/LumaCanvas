@@ -176,6 +176,13 @@
     var b = document.createElement('button');
     b.className = 'chip' + (item.id === current ? ' active' : '');
     b.textContent = item.name;
+    if (item.id !== 'none') {
+      // 选中项带 ▾：提示二次点选可展开参数
+      var cv = document.createElement('span');
+      cv.className = 'cv';
+      cv.textContent = '▾';
+      b.appendChild(cv);
+    }
     b.addEventListener('click', function () {
       [].forEach.call(container.children, function (c) { c.classList.remove('active'); });
       b.classList.add('active');
