@@ -41,26 +41,61 @@ window.Fx = (function () {
   function pick(a) { return a[(Math.random() * a.length) | 0]; }
   function rgba(rgb, a) { return 'rgba(' + rgb + ',' + a + ')'; }
 
-  // 参数缺省/非法一律按 1，clamp 0.3~3.0，避免外部传参把特效推到不可读
-  function prm1(v) { return typeof v === 'number' && isFinite(v) ? Math.min(3, Math.max(0.3, v)) : 1; }
+  // 每效果定制设置项：range 是倍率语义，数值越界先 clamp [min,max]，模块再兜底 [0.3,3]
+  function R(key, name) { return { key: key, name: name, type: 'range', min: 0.5, max: 2, step: 0.1, def: 1 }; }
+  var TXT = { key: 'text', name: '文字内容', type: 'text', def: '嗨', max: 6 };
+
+  var SPECS = {
+    none: [],
+    fireworks: [R('speed', '绽放速度'), R('count', '火星数量'), R('size', '火星大小')],
+    fireripple: [R('speed', '扩散速度'), R('count', '火星数量'), R('size', '大小')],
+    explosion: [R('speed', '爆发速度'), R('count', '碎块数量'), R('size', '碎块大小')],
+    hearts: [R('speed', '上浮速度'), R('count', '爱心数量'), R('size', '爱心大小')],
+    text: [TXT, R('speed', '上浮速度'), R('size', '字号')],
+    confetti: [R('speed', '抛洒速度'), R('count', '纸屑数量'), R('size', '纸屑大小')],
+    sparkle: [R('speed', '扩散速度'), R('count', '星星数量'), R('size', '星星大小')],
+    bubble: [R('speed', '上浮速度'), R('count', '泡泡数量'), R('size', '泡泡大小')],
+    ripple: [R('speed', '扩散速度'), R('count', '圈数'), R('size', '最大半径')],
+    snow: [R('speed', '喷洒速度'), R('count', '雪花数量'), R('size', '雪花大小')]
+  };
+  // 滑动特效同构：消散速度、每点密度、大小
+  var SWIPE_SPEC = [R('speed', '消散速度'), R('count', '密度'), R('size', '大小')];
+  var SW_SPECS = { none: [], flower: SWIPE_SPEC, star: SWIPE_SPEC, heart: SWIPE_SPEC, bubble: SWIPE_SPEC };
+
+  function paramSpec(id) { return SPECS[id] || []; }
+  function swipeSpec(id) { return SW_SPECS[id] || []; }
+
   var CUR = null; // 本次 spawn 的归一化参数；tick 里 popBurst 补的粒子必须不受影响，故 spawn 结束即清空
-  function setPrm(opts) {
-    var m = opts && opts.params;
-    CUR = m ? { s: prm1(m.speed), c: prm1(m.count), i: prm1(m.intensity) } : null;
+  function setPrm(spec, opts) {
+    var m = (opts && opts.params) || {}, i, it, v;
+    CUR = {};
+    for (i = 0; i < spec.length; i++) {
+      it = spec[i];
+      v = m[it.key];
+      if (it.type === 'text') {
+        // opts.text 保留作 text 兜底，兼容旧调用
+        if (typeof v !== 'string' || !v) v = opts && typeof opts.text === 'string' ? opts.text : '';
+        CUR.text = (v || it.def).slice(0, it.max);
+      } else {
+        if (typeof v !== 'number' || !isFinite(v)) v = it.def;
+        CUR[it.key] = Math.min(3, Math.max(0.3, Math.min(it.max, Math.max(it.min, v))));
+      }
+    }
   }
   // 数量下限 3：再少就看不出形状，count 缩放后再兜底
-  function cnt(n) { return Math.max(3, Math.round(n * (CUR ? CUR.c : 1))); }
+  function cnt(n) { return Math.max(3, Math.round(n * (CUR && CUR.count ? CUR.count : 1))); }
 
-  var MOT = ['vx', 'vy', 'vr', 'vrt'];                    // 初速/角速度类运动项
-  var SIZ = ['s', 'w', 'h', 'r', 'r0', 'r1', 'lw', 'px']; // 尺寸类字段
+  var MOT = ['vx', 'vy', 'vr', 'vrt']; // 初速/角速度类运动项，由 speed 缩放
+  // size 只缩画出来的尺寸（半径/边长/字号）；线宽、摆幅、扩散半径不是“大小”
+  var SZ = { 1: ['s'], 2: ['r0', 'r1'], 3: ['w', 'h'], 5: ['s'], 6: ['px'], 7: ['w', 'h'], 8: ['s'], 9: ['r'], 10: ['s'], 11: ['s'] };
 
   function add(p) {
     // 参数只在入池瞬间套一次：tick 里的阻尼/重力系数保持不动，无 params 时 CUR 为 null 整段跳过
     if (CUR) {
-      var j, f;
-      for (j = 0; j < MOT.length; j++) { f = MOT[j]; if (p[f] !== undefined) p[f] *= CUR.s; }
-      for (j = 0; j < SIZ.length; j++) { f = SIZ[j]; if (p[f] !== undefined) p[f] *= CUR.i; }
-      p.life = Math.min(4, Math.max(0.3, p.life / CUR.s));
+      var j, f, sf = SZ[p.k] || [], s = CUR.speed || 1, z = CUR.size || 1;
+      for (j = 0; j < MOT.length; j++) { f = MOT[j]; if (p[f] !== undefined) p[f] *= s; }
+      for (j = 0; j < sf.length; j++) { f = sf[j]; if (p[f] !== undefined) p[f] *= z; }
+      p.life = Math.min(4, Math.max(0.3, p.life / s));
     }
     P.push(p);
     // 超上限丢最旧的，防止移动端长时间点击把粒子堆爆
@@ -155,7 +190,8 @@ window.Fx = (function () {
         w: rnd(5, 11), h: rnd(2.5, 5), rot: Math.random() * TAU, vr: rnd(-12, 12)
       });
     }
-    for (i = 0; i < cnt(8); i++) {
+    // count 名称是碎块数量，烟雾固定 8 团不跟着变
+    for (i = 0; i < 8; i++) {
       a = Math.random() * TAU;
       sp = rnd(15, 70);
       add({
@@ -183,10 +219,10 @@ window.Fx = (function () {
     }
   }
 
-  function spawnText(x, y, L, opts) {
+  function spawnText(x, y, L) {
     add({
       k: 6, x: x, y: y, y0: y, t: 0, life: 1.2, px: 28,
-      txt: (opts && opts.text) ? opts.text : '嗨',
+      txt: CUR.text,
       rot: rnd(-0.16, 0.16), c: L ? '#111827' : '#ffffff'
     });
   }
@@ -237,8 +273,10 @@ window.Fx = (function () {
 
   function spawnRipple(x, y, L) {
     var rgb = L ? '13,110,253' : '125,211,252';
+    // count 是圈数倍率不是粒子数；无参 3 圈与旧版一致，取整后至少 1 圈
+    var rings = Math.max(1, Math.round(3 * (CUR && CUR.count ? CUR.count : 1)));
     var i;
-    for (i = 0; i < cnt(3); i++) {
+    for (i = 0; i < rings; i++) {
       add({
         k: 2, x: x, y: y, t: -i * 0.14, life: 0.9, r0: 6, r1: rnd(95, 150),
         lw: 7 - i, fs: rgba(rgb, 1), fd: rgba(rgb, 0.1), fl: i === 0 ? 1 : 0
@@ -265,7 +303,8 @@ window.Fx = (function () {
     var cols = L ? DEEP : BRIGHT;
     var co = L ? 'source-over' : 'lighter';
     var i, a, sp;
-    for (i = 0; i < cnt(3); i++) {
+    // count 名称是火星数量，彩环固定 3 圈不跟着变
+    for (i = 0; i < 3; i++) {
       add({ k: 2, x: x, y: y, t: -i * 0.12, life: 0.65, r0: 8,
         r1: rnd(65, 120) - i * 12, lw: 6 - i, fs: pick(cols), fd: 0, fl: 0 });
     }
@@ -282,12 +321,12 @@ window.Fx = (function () {
 
   function spawn(id, x, y, opts) {
     var L = !!(opts && opts.light);
-    setPrm(opts);
+    setPrm(SPECS[id] || [], opts);
     if (id === 'fireworks') spawnFireworks(x, y, L);
     else if (id === 'fireripple') spawnFireRipple(x, y, L);
     else if (id === 'explosion') spawnExplosion(x, y, L);
     else if (id === 'hearts') spawnHearts(x, y, L);
-    else if (id === 'text') spawnText(x, y, L, opts);
+    else if (id === 'text') spawnText(x, y, L);
     else if (id === 'confetti') spawnConfetti(x, y, L);
     else if (id === 'sparkle') spawnSparkle(x, y, L);
     else if (id === 'bubble') spawnBubble(x, y, L);
@@ -297,38 +336,42 @@ window.Fx = (function () {
     // 未知 id 静默忽略
   }
 
-  /* 每次调用只生成 1 个短寿命粒子，沿手指轨迹连点成串 */
+  /* 每个轨迹点生成 round(count) 个（clamp 1~3）短寿命粒子，沿手指轨迹连点成串 */
   function swipe(id, x, y, opts) {
     var L = !!(opts && opts.light);
-    setPrm(opts);
-    if (id === 'flower') {
-      add({
-        k: 11, x: x, y: y, t: 0, life: rnd(0.5, 0.7), s: rnd(8, 13),
-        rot: Math.random() * TAU, vr: rnd(-1.2, 1.2), fr: rnd(4, 8),
-        c: pick(L ? DEEP : BRIGHT), c2: L ? '#7c2d12' : '#ffe9a8'
-      });
-    } else if (id === 'star') {
-      // 固定 r=0 复用 case 8：闪烁脉冲淡出正好是星光轨迹
-      add({
-        k: 8, x0: x, y0: y, ang: 0, r: 0, vr: 0, s: rnd(4, 8),
-        t: 0, life: rnd(0.45, 0.65), ff: rnd(9, 15), ph: rnd(0, TAU),
-        rot: Math.random() * TAU, vrt: rnd(-2, 2),
-        c: pick(L ? DEEP : BRIGHT), co: L ? 'source-over' : 'lighter'
-      });
-    } else if (id === 'heart') {
-      add({
-        k: 5, x0: x, x: x, y: y, vx: 0, vy: rnd(-70, -40), t: 0,
-        life: rnd(0.5, 0.7), s: rnd(5, 9), sw: rnd(2, 5), fr: rnd(3, 6),
-        ph: rnd(0, TAU), rot: rnd(-0.15, 0.15), vr: rnd(-0.6, 0.6),
-        c: pick(L ? PINK_DEEP : PINK_BRIGHT)
-      });
-    } else if (id === 'bubble') {
-      var rgb = L ? '13,110,253' : '255,255,255';
-      add({
-        k: 9, x0: x, x: x, y: y, vy: rnd(-90, -55), r: rnd(3, 7), t: 0, lw: 1.4,
-        life: rnd(0.45, 0.65), sw: rnd(2, 5), fr: rnd(3, 6), ph: rnd(0, TAU),
-        fs: rgba(rgb, 0.16), ss: rgba(rgb, 0.8), hs: 'rgba(255,255,255,0.9)'
-      });
+    setPrm(SW_SPECS[id] || [], opts);
+    // count 是每点密度：round(1*count) 个粒子
+    var n = Math.min(3, Math.max(1, Math.round(CUR && CUR.count ? CUR.count : 1))), d;
+    for (d = 0; d < n; d++) {
+      if (id === 'flower') {
+        add({
+          k: 11, x: x, y: y, t: 0, life: rnd(0.5, 0.7), s: rnd(8, 13),
+          rot: Math.random() * TAU, vr: rnd(-1.2, 1.2), fr: rnd(4, 8),
+          c: pick(L ? DEEP : BRIGHT), c2: L ? '#7c2d12' : '#ffe9a8'
+        });
+      } else if (id === 'star') {
+        // 固定 r=0 复用 case 8：闪烁脉冲淡出正好是星光轨迹
+        add({
+          k: 8, x0: x, y0: y, ang: 0, r: 0, vr: 0, s: rnd(4, 8),
+          t: 0, life: rnd(0.45, 0.65), ff: rnd(9, 15), ph: rnd(0, TAU),
+          rot: Math.random() * TAU, vrt: rnd(-2, 2),
+          c: pick(L ? DEEP : BRIGHT), co: L ? 'source-over' : 'lighter'
+        });
+      } else if (id === 'heart') {
+        add({
+          k: 5, x0: x, x: x, y: y, vx: 0, vy: rnd(-70, -40), t: 0,
+          life: rnd(0.5, 0.7), s: rnd(5, 9), sw: rnd(2, 5), fr: rnd(3, 6),
+          ph: rnd(0, TAU), rot: rnd(-0.15, 0.15), vr: rnd(-0.6, 0.6),
+          c: pick(L ? PINK_DEEP : PINK_BRIGHT)
+        });
+      } else if (id === 'bubble') {
+        var rgb = L ? '13,110,253' : '255,255,255';
+        add({
+          k: 9, x0: x, x: x, y: y, vy: rnd(-90, -55), r: rnd(3, 7), t: 0, lw: 1.4,
+          life: rnd(0.45, 0.65), sw: rnd(2, 5), fr: rnd(3, 6), ph: rnd(0, TAU),
+          fs: rgba(rgb, 0.16), ss: rgba(rgb, 0.8), hs: 'rgba(255,255,255,0.9)'
+        });
+      }
     }
     CUR = null;
     // 'none' 与未知 id 静默忽略
@@ -576,5 +619,5 @@ window.Fx = (function () {
     ctx.lineCap = 'butt';
   }
 
-  return { list: list, spawn: spawn, swipeList: swipeList, swipe: swipe, tick: tick };
+  return { list: list, paramSpec: paramSpec, spawn: spawn, swipeList: swipeList, swipeSpec: swipeSpec, swipe: swipe, tick: tick };
 })();

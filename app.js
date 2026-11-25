@@ -3,7 +3,7 @@
 
   var KEY = 'mi-click-fx-config';
   var COLORS = ['#101426', '#3d4258', '#0b3b2e', '#3b1430', '#0a2f4a', '#f6f1e7', '#ffe9ec', '#e8f0ff'];
-  var defaults = { fx: 'fireworks', swipe: 'none', bg: 'none', color: '#101426', text: '', params: {} };
+  var defaults = { fx: 'fireworks', swipe: 'none', bg: 'none', color: '#101426', params: {} };
 
   var stage = document.getElementById('stage');
   var bgCanvas = document.getElementById('bgCanvas');
@@ -15,8 +15,6 @@
   var fxList = document.getElementById('fxList');
   var bgList = document.getElementById('bgList');
   var colorList = document.getElementById('colorList');
-  var textSec = document.getElementById('textSec');
-  var textInput = document.getElementById('textInput');
 
   var bgX = bgCanvas.getContext('2d');
   var fxX = fxCanvas.getContext('2d');
@@ -33,11 +31,12 @@
       var ok = copy(defaults);
       if (c && typeof c === 'object') {
         if (typeof c.color === 'string') ok.color = c.color;
-        if (typeof c.text === 'string') ok.text = c.text;
         if (typeof c.fx === 'string') ok.fx = c.fx;
         if (typeof c.swipe === 'string') ok.swipe = c.swipe;
         if (typeof c.bg === 'string') ok.bg = c.bg;
         if (c.params && typeof c.params === 'object') ok.params = c.params;
+        // 旧版全局文字配置迁移到文字特效的设置项
+        if (typeof c.text === 'string' && c.text && !ok.params['fx:text']) ok.params['fx:text'] = { text: c.text };
       }
       return ok;
     } catch (e) {
@@ -49,46 +48,66 @@
     // 扩展形态下内容脚本从 chrome.storage 读配置
     try { if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) chrome.storage.local.set({ miFxConfig: cfg }); } catch (e) {}
   }
-  function copy(o) { return { fx: o.fx, swipe: o.swipe, bg: o.bg, color: o.color, text: o.text, params: o.params || {} }; }
+  function copy(o) { return { fx: o.fx, swipe: o.swipe, bg: o.bg, color: o.color, params: o.params || {} }; }
 
-  // ---- 效果参数（速度/数量/强度），按 类别:特效id 存储，互不影响 ----
-  var PARAM_KEYS = [['speed', '速度'], ['count', '数量'], ['intensity', '强度']];
+  // ---- 效果参数：每效果按模块 spec 定制设置项，按 类别:特效id 存储 ----
   function paramKey(cat, id) { return cat + ':' + id; }
+  function specOf(cat, id) {
+    try {
+      if (cat === 'fx') return (window.Fx && Fx.paramSpec(id)) || [];
+      if (cat === 'swipe') return (window.Fx && Fx.swipeSpec(id)) || [];
+      return (window.BgFx && BgFx.paramSpec(id)) || [];
+    } catch (e) { return []; }
+  }
   function getParams(cat, id) {
-    var p = cfg.params[paramKey(cat, id)] || {};
-    return {
-      speed: typeof p.speed === 'number' ? p.speed : 1,
-      count: typeof p.count === 'number' ? p.count : 1,
-      intensity: typeof p.intensity === 'number' ? p.intensity : 1
-    };
+    var spec = specOf(cat, id), st = cfg.params[paramKey(cat, id)] || {}, out = {};
+    spec.forEach(function (it) {
+      if (it.type === 'text') {
+        out[it.key] = typeof st[it.key] === 'string' ? st[it.key] : it.def;
+      } else {
+        var v = typeof st[it.key] === 'number' ? st[it.key] : it.def;
+        out[it.key] = Math.min(it.max, Math.max(it.min, v));
+      }
+    });
+    return out;
   }
   function setParam(cat, id, k, v) {
     var key = paramKey(cat, id);
-    if (!cfg.params[key]) cfg.params[key] = { speed: 1, count: 1, intensity: 1 };
+    if (!cfg.params[key]) cfg.params[key] = {};
     cfg.params[key][k] = v;
     save();
     if (cat === 'bg' && window.BgFx) BgFx.set(cfg.bg, { light: light, params: getParams('bg', cfg.bg) });
   }
   function buildParams(container, cat, getSel) {
     container.innerHTML = '';   // 仅清空容器再用 DOM API 建节点，不注入任何字符串
-    PARAM_KEYS.forEach(function (pk) {
+    specOf(cat, getSel()).forEach(function (it) {
       var row = document.createElement('label');
       row.className = 'param-row';
       var name = document.createElement('span');
-      name.textContent = pk[1];
-      var input = document.createElement('input');
-      input.type = 'range';
-      input.min = '0.5'; input.max = '2'; input.step = '0.1';
-      input.value = getParams(cat, getSel())[pk[0]];
-      input.setAttribute('aria-label', pk[1]);
-      var val = document.createElement('b');
-      val.textContent = Number(input.value).toFixed(1) + '×';
-      input.addEventListener('input', function () {
-        var v = parseFloat(input.value);
-        val.textContent = v.toFixed(1) + '×';
-        setParam(cat, getSel(), pk[0], v);
-      });
-      row.appendChild(name); row.appendChild(input); row.appendChild(val);
+      name.textContent = it.name;
+      var input, val;
+      if (it.type === 'text') {
+        input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = it.max || 6;
+        input.value = getParams(cat, getSel())[it.key];
+        input.addEventListener('input', function () { setParam(cat, getSel(), it.key, input.value); });
+        row.appendChild(name); row.appendChild(input);
+      } else {
+        input = document.createElement('input');
+        input.type = 'range';
+        input.min = it.min; input.max = it.max; input.step = it.step;
+        input.value = getParams(cat, getSel())[it.key];
+        val = document.createElement('b');
+        val.textContent = Number(input.value).toFixed(1) + '×';
+        input.addEventListener('input', function () {
+          var v = parseFloat(input.value);
+          val.textContent = v.toFixed(1) + '×';
+          setParam(cat, getSel(), it.key, v);
+        });
+        row.appendChild(name); row.appendChild(input); row.appendChild(val);
+      }
+      input.setAttribute('aria-label', it.name);
       container.appendChild(row);
     });
   }
@@ -148,7 +167,7 @@
     down = true;
     lastX = e.clientX; lastY = e.clientY;
     var rect = stage.getBoundingClientRect();
-    Fx.spawn(cfg.fx, e.clientX - rect.left, e.clientY - rect.top, { light: light, text: cfg.text, params: getParams('fx', cfg.fx) });
+    Fx.spawn(cfg.fx, e.clientX - rect.left, e.clientY - rect.top, { light: light, params: getParams('fx', cfg.fx) });
     if (!hinted) { hinted = true; hint.classList.add('gone'); }
   }, { passive: true });
 
@@ -195,7 +214,6 @@
       var el = document.getElementById('fxParams');
       if (id === cfg.fx) { el.classList.toggle('hidden'); return; }  // 二次点选已选项 = 展开/收起参数
       cfg.fx = id;
-      textSec.classList.toggle('hidden', id !== 'text');
       buildParams(el, 'fx', function () { return cfg.fx; });
       el.classList.add('hidden');
       save();
@@ -266,11 +284,7 @@
   });
   colorList.appendChild(custom);
 
-  textInput.value = cfg.text;
-  textInput.addEventListener('input', function () { cfg.text = textInput.value; save(); });
-
   // ---- 启动 ----
-  textSec.classList.toggle('hidden', cfg.fx !== 'text');
   buildParams(document.getElementById('fxParams'), 'fx', function () { return cfg.fx; });
   buildParams(document.getElementById('swipeParams'), 'swipe', function () { return cfg.swipe; });
   buildParams(document.getElementById('bgParams'), 'bg', function () { return cfg.bg; });

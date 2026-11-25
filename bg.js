@@ -27,10 +27,38 @@
   var lastH = -1;
   var st = {};      // 各特效状态，只在 set / 尺寸变化时重建
   var pal;
-  var P = { s: 1, n: 1, i: 1 };  // speed/count/intensity 乘数，set 时更新
+  var P = { s: 1, n: 1, i: 1 };  // speed/count/size 乘数，set 时按 spec 更新
   function nOf(base) { return Math.max(2, Math.round(base * P.n)); }
-  function ka() { return P.i < 1 ? P.i : 1; }  // 强度只加浓度，超过 1 不提亮防过曝
-  function pnum(v) { return typeof v === 'number' && isFinite(v) ? Math.min(3, Math.max(0.3, v)) : 1; }
+  function ka() { return P.i < 1 ? P.i : 1; }  // 尺寸调小时同步降浓度，避免小元素显得过重
+  function pnum(v, s) {
+    if (typeof v !== 'number' || !isFinite(v)) return s.def;
+    v = Math.min(3, Math.max(0.3, v));  // 内兜底 [0.3,3]，spec 的 [min,max] 再收窄
+    return Math.min(s.max, Math.max(s.min, v));
+  }
+
+  function specItem(key, name) {
+    return { key: key, name: name, type: 'range', min: 0.5, max: 2, step: 0.1, def: 1 };
+  }
+  function spec3(a, b, c) {
+    return [specItem('speed', a), specItem('count', b), specItem('size', c)];
+  }
+  // 每效果定制设置项：count 决定元素个数、speed 乘运动速率、size 乘对应尺寸字段
+  var SPECS = {
+    none: [],
+    water: spec3('波动速度', '波纹数量', '波幅'),
+    bokeh: spec3('漂移速度', '光斑数量', '光斑大小'),
+    flow: spec3('流动速度', '色块数量', '色块大小'),
+    stars: spec3('闪烁速度', '星星数量', '星星大小'),
+    aurora: spec3('流动速度', '光带数量', '光带宽度'),
+    rain: spec3('下落速度', '雨滴数量', '雨滴大小'),
+    snow: spec3('飘落速度', '雪花数量', '雪花大小'),
+    network: spec3('漂移速度', '节点数量', '节点大小'),
+    hearts: spec3('上浮速度', '爱心数量', '爱心大小'),
+    fish: spec3('游动速度', '鱼的数量', '鱼身大小'),
+    vine: spec3('生长速度', '藤蔓条数', '叶片大小'),
+    matrix: spec3('下落速度', '列数', '字号')
+  };
+  var PKEY = { speed: 's', count: 'n', size: 'i' };  // spec key → P 槽位
 
   function rnd(a, b) { return a + Math.random() * (b - a); }
 
@@ -655,8 +683,12 @@
       if (LIST[i].id === id) { cur = id; break; }
     }
     light = !!(opts && opts.light);
-    var p = (opts && opts.params) || {};
-    P.s = pnum(p.speed); P.n = pnum(p.count); P.i = pnum(p.intensity);
+    var p = (opts && opts.params) || {}, spec = SPECS[cur] || [], j, k;
+    P.s = 1; P.n = 1; P.i = 1;  // 缺省即 spec 的 def=1，与无参数旧行为一致
+    for (j = 0; j < spec.length; j++) {
+      k = spec[j];
+      P[PKEY[k.key]] = pnum(p[k.key], k);  // 不在 spec 里的 key 不会被读取，自然忽略
+    }
     setPalette();
     lastW = -1;  // 强制下一帧按新特效（和新配色）重建状态
     lastH = -1;
@@ -677,5 +709,7 @@
     if (draws[cur]) draws[cur](ctx, w, h, dt);
   }
 
-  window.BgFx = { list: LIST, set: set, tick: tick };
+  function paramSpec(id) { return SPECS[id] || []; }
+
+  window.BgFx = { list: LIST, set: set, tick: tick, paramSpec: paramSpec };
 })();

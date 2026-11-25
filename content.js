@@ -6,14 +6,8 @@
 
   var cfg = { fx: 'fireworks', swipe: 'none', bg: 'none', text: '', params: {} };
 
-  function getParams(cat, id) {
-    var p = (cfg.params && cfg.params[cat + ':' + id]) || {};
-    return {
-      speed: typeof p.speed === 'number' ? p.speed : 1,
-      count: typeof p.count === 'number' ? p.count : 1,
-      intensity: typeof p.intensity === 'number' ? p.intensity : 1
-    };
-  }
+  // 参数原样透传，缺省/越界由模块按各效果 spec 归一
+  function getP(cat, id) { return (cfg.params && cfg.params[cat + ':' + id]) || {}; }
 
   function applyCfg(next) {
     if (next && typeof next === 'object') {
@@ -23,7 +17,7 @@
       if (typeof next.text === 'string') cfg.text = next.text;
       if (next.params && typeof next.params === 'object') cfg.params = next.params;
     }
-    if (window.BgFx) BgFx.set(cfg.bg, { light: false, params: getParams('bg', cfg.bg) });
+    if (window.BgFx) BgFx.set(cfg.bg, { light: false, params: getP('bg', cfg.bg) });
   }
 
   try {
@@ -80,14 +74,14 @@
     var down = false, lastX = 0, lastY = 0;
     document.addEventListener('pointerdown', function (e) {
       down = true; lastX = e.clientX; lastY = e.clientY;
-      Fx.spawn(cfg.fx, e.clientX, e.clientY, { light: false, text: cfg.text, params: getParams('fx', cfg.fx) });
+      Fx.spawn(cfg.fx, e.clientX, e.clientY, { light: false, params: getP('fx', cfg.fx) });
     }, true);
     document.addEventListener('pointermove', function (e) {
       if (!down || cfg.swipe === 'none') return;
       var dx = e.clientX - lastX, dy = e.clientY - lastY;
       if (dx * dx + dy * dy < 64) return;   // 8px 节流，防止轨迹粒子堆积
       lastX = e.clientX; lastY = e.clientY;
-      Fx.swipe(cfg.swipe, e.clientX, e.clientY, { light: false, params: getParams('swipe', cfg.swipe) });
+      Fx.swipe(cfg.swipe, e.clientX, e.clientY, { light: false, params: getP('swipe', cfg.swipe) });
     }, true);
     ['pointerup', 'pointercancel'].forEach(function (ev) {
       document.addEventListener(ev, function () { down = false; }, true);
