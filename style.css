@@ -152,6 +152,14 @@ section.hidden { display: none; }
   text-shadow: 0 0 3px rgba(0, 0, 0, .8);
 }
 
+.swatch.none {
+  background: transparent;
+  border: 2px dashed rgba(255, 255, 255, .4);
+  color: rgba(238, 240, 248, .7);
+  font-size: 12px;
+}
+.swatch.none.active::after { content: none; }
+
 #customColor {
   width: 34px;
   height: 34px;

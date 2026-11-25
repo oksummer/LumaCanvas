@@ -95,6 +95,7 @@
 
   // ---- 背景亮度：决定特效用深色系还是亮色系 ----
   function isLight(hex) {
+    if (hex === 'none') return true;   // 透明背景按浅色处理
     var m = /^#([0-9a-f]{6})$/i.exec(hex || '');
     if (!m) return false;
     var n = parseInt(m[1], 16);
@@ -115,7 +116,7 @@
 
   // ---- 背景与提示的明暗跟随 ----
   function applyColor() {
-    document.body.style.background = cfg.color;
+    document.body.style.background = cfg.color === 'none' ? 'transparent' : cfg.color;
     light = isLight(cfg.color);
     hint.classList.toggle('dark', light);
     if (window.BgFx) BgFx.set(cfg.bg, { light: light, params: getParams('bg', cfg.bg) });
@@ -184,30 +185,53 @@
   }
   (window.Fx ? Fx.list : []).forEach(function (it) {
     chip(fxList, it, cfg.fx, function (id) {
+      var el = document.getElementById('fxParams');
+      if (id === cfg.fx) { el.classList.toggle('hidden'); return; }  // 二次点选已选项 = 展开/收起参数
       cfg.fx = id;
       textSec.classList.toggle('hidden', id !== 'text');
-      buildParams(document.getElementById('fxParams'), 'fx', function () { return cfg.fx; });
+      buildParams(el, 'fx', function () { return cfg.fx; });
+      el.classList.add('hidden');
       save();
     });
   });
   (window.BgFx ? BgFx.list : []).forEach(function (it) {
     chip(bgList, it, cfg.bg, function (id) {
+      var el = document.getElementById('bgParams');
+      if (id === cfg.bg) {
+        if (id !== 'none') el.classList.toggle('hidden');
+        return;
+      }
       cfg.bg = id;
       BgFx.set(id, { light: light, params: getParams('bg', id) });
-      buildParams(document.getElementById('bgParams'), 'bg', function () { return cfg.bg; });
-      document.getElementById('bgParams').classList.toggle('hidden', id === 'none');
+      buildParams(el, 'bg', function () { return cfg.bg; });
+      el.classList.toggle('hidden', id === 'none');
       save();
     });
   });
   var swipeListEl = document.getElementById('swipeList');
   (window.Fx && Fx.swipeList ? Fx.swipeList : []).forEach(function (it) {
     chip(swipeListEl, it, cfg.swipe, function (id) {
+      var el = document.getElementById('swipeParams');
+      if (id === cfg.swipe) { el.classList.toggle('hidden'); return; }
       cfg.swipe = id;
-      buildParams(document.getElementById('swipeParams'), 'swipe', function () { return cfg.swipe; });
+      buildParams(el, 'swipe', function () { return cfg.swipe; });
+      el.classList.add('hidden');
       save();
     });
   });
 
+  var noneSw = document.createElement('button');
+  noneSw.className = 'swatch none' + (cfg.color === 'none' ? ' active' : '');
+  noneSw.textContent = '无';
+  noneSw.setAttribute('aria-label', '不设置背景色');
+  noneSw.addEventListener('click', function () {
+    [].forEach.call(colorList.children, function (el) { el.classList.remove('active'); });
+    noneSw.classList.add('active');
+    cfg.color = 'none';
+    applyColor();
+    save();
+  });
+  colorList.appendChild(noneSw);
   COLORS.forEach(function (c) {
     var b = document.createElement('button');
     b.className = 'swatch' + (c.toLowerCase() === cfg.color.toLowerCase() ? ' active' : '');
@@ -243,7 +267,10 @@
   buildParams(document.getElementById('fxParams'), 'fx', function () { return cfg.fx; });
   buildParams(document.getElementById('swipeParams'), 'swipe', function () { return cfg.swipe; });
   buildParams(document.getElementById('bgParams'), 'bg', function () { return cfg.bg; });
-  document.getElementById('bgParams').classList.toggle('hidden', cfg.bg === 'none');
+  // 参数默认收起，二次点选已选中的效果才展开
+  document.getElementById('fxParams').classList.add('hidden');
+  document.getElementById('swipeParams').classList.add('hidden');
+  document.getElementById('bgParams').classList.add('hidden');
   resize();
   applyColor();
   window.addEventListener('resize', resize);

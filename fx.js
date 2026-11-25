@@ -15,6 +15,7 @@ window.Fx = (function () {
   var FIRE_DEEP = ['#c2410c', '#a16207', '#b45309', '#92400e'];
 
   var list = [
+    { id: 'none', name: '无' },
     { id: 'fireworks', name: '烟花' },
     { id: 'fireripple', name: '烟花波纹' },
     { id: 'explosion', name: '爆炸' },
@@ -455,7 +456,7 @@ window.Fx = (function () {
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rot);
           ctx.scale(e, e);
-          ctx.font = 'bold 28px sans-serif';
+          ctx.font = 'bold ' + p.px + 'px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(p.txt, 0, 0);
@@ -512,7 +513,7 @@ window.Fx = (function () {
           ctx.arc(p.x, p.y, p.r, 0, TAU);
           ctx.fill();
           ctx.strokeStyle = p.ss;
-          ctx.lineWidth = 1.4;
+          ctx.lineWidth = p.lw;
           ctx.stroke();
           ctx.fillStyle = p.hs;
           ctx.beginPath();
@@ -531,7 +532,7 @@ window.Fx = (function () {
           if (al <= 0) break;
           ctx.globalAlpha = al;
           ctx.strokeStyle = p.c;
-          ctx.lineWidth = 1.4;
+          ctx.lineWidth = p.lw;
           ctx.save();
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rot);
