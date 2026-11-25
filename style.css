@@ -188,6 +188,13 @@ section.hidden { display: none; }
 
 .params { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .params.hidden { display: none; }
+.panel-foot {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; margin-top: 18px; padding: 10px 0 2px;
+  font-size: 12px; color: rgba(238, 240, 248, .55); text-decoration: none;
+}
+.panel-foot:active { opacity: .7; }
+.panel-foot .gh { opacity: .8; flex: none; }
 .param-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: rgba(238, 240, 248, .75); }
 .param-row span { width: 60px; flex: none; }
 .param-row input[type="range"] { flex: 1; height: 28px; }
